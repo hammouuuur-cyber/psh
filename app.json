@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "PSH Kiné",
+    "slug": "psh-kine",
+    "version": "0.1.0",
+    "scheme": "pshkine",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.psh.kine"
+    },
+    "android": {
+      "package": "app.psh.kine"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "L'application a besoin d'accéder à vos photos pour illustrer les exercices.",
+          "cameraPermission": "L'application a besoin d'accéder à votre caméra pour filmer les exercices."
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
