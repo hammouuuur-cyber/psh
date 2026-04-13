@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { ResizeMode, Video } from 'expo-av';
 
 import { getSignedUrl } from '@/lib/storage';
 import { colors, radii, spacing, typography } from '@/lib/theme';
@@ -13,6 +13,7 @@ type Props = {
 export function VideoPlayer({ storagePath }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const ref = useRef<Video>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,10 +29,6 @@ export function VideoPlayer({ storagePath }: Props) {
       cancelled = true;
     };
   }, [storagePath]);
-
-  const player = useVideoPlayer(url ?? '', (p) => {
-    p.loop = true;
-  });
 
   if (error) {
     return (
@@ -49,7 +46,16 @@ export function VideoPlayer({ storagePath }: Props) {
     );
   }
 
-  return <VideoView player={player} style={styles.video} nativeControls allowsFullscreen />;
+  return (
+    <Video
+      ref={ref}
+      style={styles.video}
+      source={{ uri: url }}
+      useNativeControls
+      resizeMode={ResizeMode.CONTAIN}
+      isLooping
+    />
+  );
 }
 
 const styles = StyleSheet.create({

@@ -27,25 +27,34 @@ export default function SignUpScreen() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Le rôle et le nom sont transmis via raw_user_meta_data. Un trigger SQL
+    // (migration 0002) crée automatiquement la ligne public.profiles côté serveur,
+    // ce qui contourne les problèmes de RLS quand il n'y a pas encore de session.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          role,
+          display_name: name || null,
+        },
+      },
+    });
     if (error) {
       setLoading(false);
       Alert.alert('Inscription impossible', error.message);
       return;
     }
 
-    const userId = data.user?.id;
-    if (userId) {
-      // Création du profil avec rôle choisi
-      const { error: pErr } = await supabase.from('profiles').upsert({
-        id: userId,
+    // Fallback : si pour une raison quelconque le trigger n'a pas créé le profil,
+    // on essaie un upsert côté client (nécessite une session active).
+    if (data.session && data.user?.id) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
         role,
         display_name: name || null,
         interests: [],
       });
-      if (pErr) {
-        console.warn('[sign-up] profile insert error', pErr.message);
-      }
     }
 
     setLoading(false);
