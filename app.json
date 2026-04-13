@@ -26,13 +26,6 @@
           "photosPermission": "L'application a besoin d'accéder à vos photos pour illustrer les exercices.",
           "cameraPermission": "L'application a besoin d'accéder à votre caméra pour filmer les exercices."
         }
-      ],
-      [
-        "expo-video",
-        {
-          "supportsBackgroundPlayback": false,
-          "supportsPictureInPicture": false
-        }
       ]
     ],
     "experiments": {
