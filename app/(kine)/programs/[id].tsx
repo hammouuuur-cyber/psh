@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,6 +14,15 @@ import { colors, radii, spacing, typography } from '@/lib/theme';
 import type { Exercise, ProgramExercise } from '@/types/database';
 
 type ProgramItem = ProgramExercise & { exercises: Exercise };
+
+function exerciseSummary(ex: Pick<Exercise, 'default_sets' | 'default_reps' | 'default_duration_sec' | 'default_rest_sec'>) {
+  const parts: string[] = [];
+  if (ex.default_sets) parts.push(`${ex.default_sets} séries`);
+  if (ex.default_reps) parts.push(`${ex.default_reps} reps`);
+  if (ex.default_duration_sec) parts.push(`${ex.default_duration_sec}s`);
+  if (ex.default_rest_sec) parts.push(`repos ${ex.default_rest_sec}s`);
+  return parts.join(' · ') || 'Pas de consignes par défaut';
+}
 
 export default function KineProgramEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,16 +64,19 @@ export default function KineProgramEdit() {
           .filter((c): c is string => !!c),
       );
 
-      const { data: pe } = await supabase
-        .from('program_exercises')
-        .select('*, exercises(*)')
-        .eq('program_id', id)
-        .order('order');
-      setItems((pe ?? []) as ProgramItem[]);
-
+      await reloadItems(id as string);
       setLoading(false);
     })();
   }, [id, isNew]);
+
+  const reloadItems = async (programId: string) => {
+    const { data: pe } = await supabase
+      .from('program_exercises')
+      .select('*, exercises(*)')
+      .eq('program_id', programId)
+      .order('order');
+    setItems((pe ?? []) as ProgramItem[]);
+  };
 
   const saveProgram = async () => {
     if (!session?.user?.id) return;
@@ -136,19 +148,42 @@ export default function KineProgramEdit() {
       Alert.alert('Erreur', error.message);
       return;
     }
-    const { data } = await supabase
-      .from('program_exercises')
-      .select('*, exercises(*)')
-      .eq('program_id', id)
-      .order('order');
-    setItems((data ?? []) as ProgramItem[]);
+    await reloadItems(id as string);
     setShowPicker(false);
   };
 
   const removeItem = async (itemId: string) => {
     await supabase.from('program_exercises').delete().eq('id', itemId);
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
+    const next = items.filter((i) => i.id !== itemId).map((it, idx) => ({ ...it, order: idx }));
+    // Renumérote les ordres en DB pour rester compact.
+    for (const it of next) {
+      await supabase.from('program_exercises').update({ order: it.order }).eq('id', it.id);
+    }
+    setItems(next);
   };
+
+  const move = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    const a = items[index];
+    const b = items[target];
+    const next = [...items];
+    next[index] = { ...b, order: index };
+    next[target] = { ...a, order: target };
+    setItems(next);
+    // Astuce: on passe par des ordres temporaires negatifs pour eviter de violer
+    // la contrainte unique (program_id, exercise_id, order) pendant le swap.
+    await supabase.from('program_exercises').update({ order: -1 }).eq('id', a.id);
+    await supabase.from('program_exercises').update({ order: target }).eq('id', b.id);
+    await supabase.from('program_exercises').update({ order: index }).eq('id', a.id);
+    // On recharge pour re-synchroniser la relation exercises.
+    if (typeof id === 'string') await reloadItems(id);
+  };
+
+  const availableExercises = useMemo(
+    () => (myExercises ?? []).filter((ex) => !items.some((it) => it.exercise_id === ex.id)),
+    [myExercises, items],
+  );
 
   if (loading) {
     return (
@@ -182,44 +217,75 @@ export default function KineProgramEdit() {
 
       <Button label="Enregistrer le programme" onPress={saveProgram} loading={saving} />
 
-      {!isNew ? (
+      {isNew ? (
+        <Text style={styles.hint}>
+          Enregistrez le programme pour pouvoir y ajouter des exercices.
+        </Text>
+      ) : (
         <>
           <Text style={styles.section}>Exercices du programme</Text>
           {items.length === 0 ? (
-            <Text style={styles.muted}>Aucun exercice. Ajoutez-en depuis vos exercices.</Text>
+            <Text style={styles.muted}>
+              Aucun exercice pour l'instant. Utilisez le bouton ci-dessous pour
+              piocher parmi vos exercices encodés.
+            </Text>
           ) : null}
+
           {items.map((item, idx) => (
-            <View key={item.id} style={styles.card}>
-              <Text style={styles.cardTitle}>
-                {idx + 1}. {item.exercises.title}
-              </Text>
-              <Pressable onPress={() => removeItem(item.id)}>
-                <Text style={{ color: colors.danger }}>Retirer</Text>
-              </Pressable>
+            <View key={item.id} style={styles.itemCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>
+                  {idx + 1}. {item.exercises.title}
+                </Text>
+                <Text style={styles.meta}>{exerciseSummary(item.exercises)}</Text>
+              </View>
+              <View style={styles.itemActions}>
+                <Pressable
+                  onPress={() => move(idx, -1)}
+                  disabled={idx === 0}
+                  style={[styles.moveBtn, idx === 0 && styles.moveBtnDisabled]}
+                >
+                  <Text style={styles.moveBtnLabel}>↑</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => move(idx, 1)}
+                  disabled={idx === items.length - 1}
+                  style={[styles.moveBtn, idx === items.length - 1 && styles.moveBtnDisabled]}
+                >
+                  <Text style={styles.moveBtnLabel}>↓</Text>
+                </Pressable>
+                <Pressable onPress={() => removeItem(item.id)}>
+                  <Text style={styles.removeLabel}>Retirer</Text>
+                </Pressable>
+              </View>
             </View>
           ))}
 
           <Button
-            label={showPicker ? 'Fermer' : '+ Ajouter un exercice'}
+            label={showPicker ? 'Fermer la liste' : '+ Ajouter un exercice au programme'}
             variant="secondary"
             onPress={() => setShowPicker((v) => !v)}
           />
 
           {showPicker ? (
             <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-              {(myExercises ?? [])
-                .filter((ex) => !items.some((it) => it.exercise_id === ex.id))
-                .map((ex) => (
-                  <Pressable key={ex.id} style={styles.card} onPress={() => addExercise(ex.id)}>
+              {availableExercises.length === 0 ? (
+                <Text style={styles.muted}>
+                  Tous vos exercices sont déjà dans ce programme, ou vous n'avez
+                  pas encore créé d'exercice.
+                </Text>
+              ) : (
+                availableExercises.map((ex) => (
+                  <Pressable key={ex.id} style={styles.pickerCard} onPress={() => addExercise(ex.id)}>
                     <Text style={styles.cardTitle}>{ex.title}</Text>
-                    <Text style={styles.meta}>Appuyer pour ajouter</Text>
+                    <Text style={styles.meta}>{exerciseSummary(ex)}</Text>
+                    <Text style={styles.addHint}>Appuyer pour ajouter</Text>
                   </Pressable>
-                ))}
+                ))
+              )}
             </View>
           ) : null}
         </>
-      ) : (
-        <Text style={styles.hint}>Enregistrez d'abord pour ajouter des exercices.</Text>
       )}
     </Screen>
   );
@@ -237,16 +303,36 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radii.md,
   },
-  card: {
+  itemCard: {
     backgroundColor: colors.surface,
     padding: spacing.md,
     borderRadius: radii.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  cardTitle: { ...typography.body, color: colors.text, flex: 1 },
-  meta: { ...typography.small, color: colors.primary },
+  pickerCard: {
+    backgroundColor: colors.surfaceAlt,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardTitle: { ...typography.body, color: colors.text, fontWeight: '600' },
+  meta: { ...typography.small, color: colors.textMuted, marginTop: 2 },
+  addHint: { ...typography.small, color: colors.primary, marginTop: spacing.xs },
   muted: { ...typography.body, color: colors.textMuted },
   hint: { ...typography.small, color: colors.textMuted, fontStyle: 'italic' },
+  itemActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  moveBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moveBtnDisabled: { opacity: 0.3 },
+  moveBtnLabel: { ...typography.body, color: colors.text, fontWeight: '700' },
+  removeLabel: { ...typography.small, color: colors.danger },
 });
