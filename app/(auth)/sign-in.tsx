@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { supabase } from '@/lib/supabase';
-import { colors, typography } from '@/lib/theme';
+import { colors, spacing, typography } from '@/lib/theme';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -19,7 +19,10 @@ export default function SignInScreen() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
     setLoading(false);
     if (error) {
       Alert.alert('Connexion impossible', error.message);
@@ -28,12 +31,19 @@ export default function SignInScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Bienvenue</Text>
-      <Text style={styles.subtitle}>
-        Votre application d'exercices de kinésithérapie pour maladies neuromusculaires.
-      </Text>
+      <View style={styles.hero}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>PSH Kiné</Text>
+        <Text style={styles.subtitle}>
+          Exercices adaptés aux maladies neuromusculaires
+        </Text>
+      </View>
 
-      <View style={{ marginTop: 24 }}>
+      <View style={styles.card}>
         <TextField
           label="Email"
           value={email}
@@ -41,6 +51,7 @@ export default function SignInScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
+          placeholder="vous@exemple.com"
         />
         <TextField
           label="Mot de passe"
@@ -48,13 +59,21 @@ export default function SignInScreen() {
           onChangeText={setPassword}
           secureTextEntry
           autoComplete="password"
+          placeholder="••••••••"
         />
         <Button label="Se connecter" onPress={onSubmit} loading={loading} />
+
+        <Link href="/(auth)/forgot-password" asChild>
+          <Pressable style={styles.forgotWrap}>
+            <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
+          </Pressable>
+        </Link>
       </View>
 
-      <View style={{ alignItems: 'center', marginTop: 24 }}>
+      <View style={styles.signupRow}>
+        <Text style={styles.signupText}>Pas encore de compte ?</Text>
         <Link href="/(auth)/sign-up">
-          <Text style={{ color: colors.primary, ...typography.body }}>Créer un compte</Text>
+          <Text style={styles.signupLink}> Créer un compte</Text>
         </Link>
       </View>
     </Screen>
@@ -62,6 +81,40 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textMuted, marginTop: 8 },
+  hero: {
+    alignItems: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 22,
+  },
+  title: { ...typography.h1, color: colors.text, marginTop: spacing.sm },
+  subtitle: {
+    ...typography.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 0,
+  },
+  forgotWrap: { alignItems: 'flex-end', paddingTop: spacing.sm },
+  forgotText: { ...typography.small, color: colors.primary, fontWeight: '600' },
+  signupRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingTop: spacing.md,
+    flexWrap: 'wrap',
+  },
+  signupText: { ...typography.body, color: colors.textMuted },
+  signupLink: { ...typography.bodyStrong, color: colors.primary },
 });

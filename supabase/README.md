@@ -56,6 +56,19 @@ create policy "storage: kine can delete own"
 Dans **Authentication > Providers**, activer **Email**.
 Pour le développement, désactiver la confirmation par email dans **Authentication > Email Templates** (optionnel).
 
+### URL Configuration (nécessaire pour le « mot de passe oublié »)
+
+Dans **Authentication > URL Configuration** :
+
+- **Site URL** : `pshkine://`
+- **Redirect URLs** (ajouter) :
+  - `pshkine://reset-password`
+  - `pshkine://` (fallback)
+
+Ces URLs permettent au lien reçu par email de rouvrir directement l'app
+sur l'écran de réinitialisation. Sans elles, Supabase renvoie vers
+`http://localhost:3000` par défaut, ce qui échoue sur mobile.
+
 ## 5. Tester
 
 Créer un utilisateur via l'app, vérifier dans **Table Editor > profiles** que la ligne est bien insérée avec le bon rôle.
