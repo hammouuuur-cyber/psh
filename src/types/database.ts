@@ -68,3 +68,33 @@ export type Subscription = {
   program_id: string;
   added_at: string;
 };
+
+export type ProgramSession = {
+  id: string;
+  patient_id: string;
+  program_id: string;
+  started_at: string;
+  completed_at: string | null;
+  perceived_effort: number | null;
+  feedback_note: string | null;
+};
+
+export type ExerciseCompletion = {
+  id: string;
+  session_id: string;
+  program_exercise_id: string;
+  completed_at: string;
+};
+
+/** 1 = faible énergie, 2 = correct, 3 = en forme. */
+export type MoodLevel = 1 | 2 | 3;
+
+export type DailyCheckin = {
+  id: string;
+  patient_id: string;
+  date: string; // YYYY-MM-DD
+  mood: MoodLevel | null;
+  rest_requested: boolean;
+  note: string | null;
+  created_at: string;
+};

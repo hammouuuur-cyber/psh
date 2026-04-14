@@ -1,7 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from './supabase';
-import type { Exercise, Pathology, Program, ProgramExercise } from '@/types/database';
+import type {
+  DailyCheckin,
+  Exercise,
+  ExerciseCompletion,
+  Pathology,
+  Program,
+  ProgramExercise,
+  ProgramSession,
+} from '@/types/database';
 
 export function usePathologies() {
   return useQuery({
@@ -163,6 +171,132 @@ export function useExerciseDetail(exerciseId: string | undefined) {
       return {
         exercise: exercise as Exercise | null,
         assets: (assets ?? []) as import('@/types/database').ExerciseAsset[],
+      };
+    },
+  });
+}
+
+/**
+ * Dernière session active du patient sur un programme (completed_at IS NULL).
+ * Retourne `null` si aucune session n'est en cours.
+ */
+export function useActiveSession(patientId: string | undefined, programId: string | undefined) {
+  return useQuery({
+    enabled: !!patientId && !!programId,
+    queryKey: ['program_session', 'active', patientId, programId],
+    queryFn: async (): Promise<ProgramSession | null> => {
+      const { data, error } = await supabase
+        .from('program_sessions')
+        .select('*')
+        .eq('patient_id', patientId!)
+        .eq('program_id', programId!)
+        .is('completed_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as ProgramSession | null) ?? null;
+    },
+  });
+}
+
+/** Exercices déjà marqués comme faits dans une session donnée. */
+export function useSessionCompletions(sessionId: string | undefined) {
+  return useQuery({
+    enabled: !!sessionId,
+    queryKey: ['exercise_completions', sessionId],
+    queryFn: async (): Promise<ExerciseCompletion[]> => {
+      const { data, error } = await supabase
+        .from('exercise_completions')
+        .select('*')
+        .eq('session_id', sessionId!);
+      if (error) throw error;
+      return (data ?? []) as ExerciseCompletion[];
+    },
+  });
+}
+
+/** Historique des sessions terminées. */
+export function useProgramHistory(patientId: string | undefined, programId: string | undefined) {
+  return useQuery({
+    enabled: !!patientId && !!programId,
+    queryKey: ['program_session', 'history', patientId, programId],
+    queryFn: async (): Promise<ProgramSession[]> => {
+      const { data, error } = await supabase
+        .from('program_sessions')
+        .select('*')
+        .eq('patient_id', patientId!)
+        .eq('program_id', programId!)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data ?? []) as ProgramSession[];
+    },
+  });
+}
+
+/** Check-in quotidien du patient pour aujourd'hui (null si aucun). */
+export function useTodayCheckin(patientId: string | undefined) {
+  return useQuery({
+    enabled: !!patientId,
+    queryKey: ['daily_checkin', 'today', patientId],
+    queryFn: async (): Promise<DailyCheckin | null> => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('patient_id', patientId!)
+        .eq('date', today)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as DailyCheckin | null) ?? null;
+    },
+  });
+}
+
+/** Sessions récentes du patient sur les N derniers jours, pour la jauge de régularité. */
+export function useRecentActivity(patientId: string | undefined, days: number = 14) {
+  return useQuery({
+    enabled: !!patientId,
+    queryKey: ['recent_activity', patientId, days],
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const sinceStr = since.toISOString();
+
+      const [sessions, checkins] = await Promise.all([
+        supabase
+          .from('program_sessions')
+          .select('id, completed_at')
+          .eq('patient_id', patientId!)
+          .not('completed_at', 'is', null)
+          .gte('completed_at', sinceStr),
+        supabase
+          .from('daily_checkins')
+          .select('date, rest_requested, mood')
+          .eq('patient_id', patientId!)
+          .gte('date', since.toISOString().slice(0, 10)),
+      ]);
+
+      if (sessions.error) throw sessions.error;
+      if (checkins.error) throw checkins.error;
+
+      // Ensemble des dates (YYYY-MM-DD) où une séance a été validée
+      // OU un jour de repos a été signalé — on compte les deux comme
+      // « jour pris en main » pour la jauge de régularité.
+      const dates = new Set<string>();
+      for (const s of sessions.data ?? []) {
+        if (s.completed_at) dates.add(String(s.completed_at).slice(0, 10));
+      }
+      for (const c of checkins.data ?? []) {
+        if (c.rest_requested) dates.add(c.date);
+      }
+
+      return {
+        days,
+        activeDays: dates.size,
+        dates: Array.from(dates).sort(),
       };
     },
   });
