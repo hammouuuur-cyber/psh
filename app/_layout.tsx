@@ -107,7 +107,7 @@ function RootRouter() {
       }
     } else if (profile.role === 'kine') {
       if (first !== '(kine)') {
-        router.replace('/(kine)/exercises');
+        router.replace('/(kine)/patients');
       }
     }
   }, [loading, session, profile, segments, router]);

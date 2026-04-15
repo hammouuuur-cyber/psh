@@ -23,6 +23,13 @@ export default function KineLayout() {
       }}
     >
       <Tabs.Screen
+        name="patients/index"
+        options={{
+          title: 'Patients',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="exercises/index"
         options={{
           title: 'Exercices',
@@ -37,14 +44,29 @@ export default function KineLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages/index"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="account"
         options={{
           title: 'Compte',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle" size={size} color={color} />
+          ),
         }}
       />
+
+      {/* Écrans cachés de la barre d'onglets */}
       <Tabs.Screen name="exercises/[id]" options={{ href: null, title: 'Exercice' }} />
       <Tabs.Screen name="programs/[id]" options={{ href: null, title: 'Programme' }} />
+      <Tabs.Screen name="patients/[id]" options={{ href: null, title: 'Patient' }} />
+      <Tabs.Screen name="messages/[id]" options={{ href: null, title: 'Conversation' }} />
     </Tabs>
   );
 }

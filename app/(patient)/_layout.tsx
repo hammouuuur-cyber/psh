@@ -40,18 +40,35 @@ export default function PatientLayout() {
         name="my-programs"
         options={{
           title: 'Programmes',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list-circle" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages/index"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Compte',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle" size={size} color={color} />
+          ),
         }}
       />
+
+      {/* Écrans cachés de la barre d'onglets */}
       <Tabs.Screen name="exercise/[id]" options={{ href: null, title: 'Exercice' }} />
       <Tabs.Screen name="program/[id]" options={{ href: null, title: 'Programme' }} />
+      <Tabs.Screen name="messages/[id]" options={{ href: null, title: 'Conversation' }} />
+      <Tabs.Screen name="link-kine" options={{ href: null, title: 'Mon kiné' }} />
     </Tabs>
   );
 }

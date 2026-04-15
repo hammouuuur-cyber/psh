@@ -2,10 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from './supabase';
 import type {
+  CareLink,
   DailyCheckin,
   Exercise,
   ExerciseCompletion,
+  InvitationCode,
+  Message,
   Pathology,
+  Profile,
   Program,
   ProgramExercise,
   ProgramSession,
@@ -298,6 +302,170 @@ export function useRecentActivity(patientId: string | undefined, days: number = 
         activeDays: dates.size,
         dates: Array.from(dates).sort(),
       };
+    },
+  });
+}
+
+// =============================================================================
+// Liens de soin (kiné ↔ patient) + messagerie
+// =============================================================================
+
+/** Patients liés à un kiné (lien actif). */
+export function useLinkedPatients(kineId: string | undefined) {
+  return useQuery({
+    enabled: !!kineId,
+    queryKey: ['care_links', 'kine', kineId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('care_links')
+        .select('id, status, created_at, patient_id, patient:profiles!care_links_patient_id_fkey(id, display_name, role)')
+        .eq('kine_id', kineId!)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as (CareLink & {
+        patient: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+      })[];
+    },
+  });
+}
+
+/** Kinés liés à un patient. */
+export function useLinkedKines(patientId: string | undefined) {
+  return useQuery({
+    enabled: !!patientId,
+    queryKey: ['care_links', 'patient', patientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('care_links')
+        .select('id, status, created_at, kine_id, kine:profiles!care_links_kine_id_fkey(id, display_name, role)')
+        .eq('patient_id', patientId!)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as (CareLink & {
+        kine: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+      })[];
+    },
+  });
+}
+
+/** Dernière séance terminée d'un patient (tous programmes confondus). */
+export function useLatestSessionForPatient(patientId: string | undefined) {
+  return useQuery({
+    enabled: !!patientId,
+    queryKey: ['program_session', 'latest', patientId],
+    queryFn: async (): Promise<(ProgramSession & { programs: { title: string } | null }) | null> => {
+      const { data, error } = await supabase
+        .from('program_sessions')
+        .select('*, programs(title)')
+        .eq('patient_id', patientId!)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as (ProgramSession & { programs: { title: string } | null }) | null) ?? null;
+    },
+  });
+}
+
+/** Codes d'invitation actifs (non utilisés, non expirés) d'un kiné. */
+export function useActiveInvitationCodes(kineId: string | undefined) {
+  return useQuery({
+    enabled: !!kineId,
+    queryKey: ['invitation_codes', kineId],
+    queryFn: async (): Promise<InvitationCode[]> => {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('invitation_codes')
+        .select('*')
+        .eq('kine_id', kineId!)
+        .is('used_by', null)
+        .gt('expires_at', nowIso)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as InvitationCode[];
+    },
+  });
+}
+
+/** Messages d'un care_link, triés par date. Refresh toutes les 5s. */
+export function useMessages(careLinkId: string | undefined) {
+  return useQuery({
+    enabled: !!careLinkId,
+    queryKey: ['messages', careLinkId],
+    refetchInterval: 5000,
+    queryFn: async (): Promise<Message[]> => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('care_link_id', careLinkId!)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Message[];
+    },
+  });
+}
+
+/**
+ * Liste des conversations (care_links actifs) avec le dernier message et
+ * le nombre de messages non lus pour l'utilisateur courant.
+ */
+export function useConversations(userId: string | undefined) {
+  return useQuery({
+    enabled: !!userId,
+    queryKey: ['conversations', userId],
+    refetchInterval: 10000,
+    queryFn: async () => {
+      const { data: links, error } = await supabase
+        .from('care_links')
+        .select(
+          'id, kine_id, patient_id, status, kine:profiles!care_links_kine_id_fkey(id, display_name, role), patient:profiles!care_links_patient_id_fkey(id, display_name, role)',
+        )
+        .eq('status', 'active')
+        .or(`kine_id.eq.${userId},patient_id.eq.${userId}`);
+      if (error) throw error;
+
+      const ids = (links ?? []).map((l: { id: string }) => l.id);
+      if (ids.length === 0) {
+        return [] as Array<{
+          link: CareLink & {
+            kine: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+            patient: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+          };
+          lastMessage: Message | null;
+          unreadCount: number;
+        }>;
+      }
+
+      // Tous les messages des liens concernés (on n'en a pas des millions en MVP)
+      const { data: msgs, error: err2 } = await supabase
+        .from('messages')
+        .select('*')
+        .in('care_link_id', ids)
+        .order('created_at', { ascending: false });
+      if (err2) throw err2;
+
+      const byLink = new Map<string, Message[]>();
+      for (const m of (msgs ?? []) as Message[]) {
+        const arr = byLink.get(m.care_link_id) ?? [];
+        arr.push(m);
+        byLink.set(m.care_link_id, arr);
+      }
+
+      return (links ?? []).map((link: unknown) => {
+        const l = link as CareLink & {
+          kine: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+          patient: Pick<Profile, 'id' | 'display_name' | 'role'> | null;
+        };
+        const msgsForLink = byLink.get(l.id) ?? [];
+        const lastMessage = msgsForLink[0] ?? null;
+        const unreadCount = msgsForLink.filter(
+          (m) => m.sender_id !== userId && !m.read_at,
+        ).length;
+        return { link: l, lastMessage, unreadCount };
+      });
     },
   });
 }

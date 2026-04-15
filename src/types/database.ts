@@ -99,3 +99,29 @@ export type DailyCheckin = {
   note: string | null;
   created_at: string;
 };
+
+export type CareLink = {
+  id: string;
+  kine_id: string;
+  patient_id: string;
+  status: 'active' | 'revoked';
+  created_at: string;
+};
+
+export type InvitationCode = {
+  code: string;
+  kine_id: string;
+  expires_at: string;
+  used_by: string | null;
+  used_at: string | null;
+  created_at: string;
+};
+
+export type Message = {
+  id: string;
+  care_link_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+};
