@@ -1,7 +1,7 @@
 // Palette et tokens UI — thème "Terre & Nature" (chaleureux, organique).
 // Deux modes : sombre (défaut) en gris chaud, clair coquille d'œuf.
 
-import { Platform, type ViewStyle } from 'react-native';
+import { type ViewStyle } from 'react-native';
 
 // Mode sombre chaud (ne fatigue pas les yeux le soir).
 export const colors = {
@@ -48,23 +48,17 @@ export const radii = {
   pill: 999,
 };
 
-// Police système avec variante arrondie quand disponible (iOS: SF Rounded,
-// Android: fallback sur sans-serif). Pour une vraie police custom (Nunito,
-// Outfit), il faudrait expo-font ; on l'ajoutera plus tard.
-const fontFamily = Platform.select({
-  ios: 'System',
-  android: 'sans-serif',
-  default: 'System',
-});
-
+// Nunito est chargée via useFonts() dans app/_layout.tsx.
+// On utilise les variantes nommées pour chaque graisse.
+// Si les polices ne sont pas encore chargées, RN tombe sur la police système.
 export const typography = {
-  h1: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.5, fontFamily },
-  h2: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3, fontFamily },
-  h3: { fontSize: 18, fontWeight: '700' as const, fontFamily },
-  body: { fontSize: 16, fontWeight: '400' as const, fontFamily },
-  bodyStrong: { fontSize: 16, fontWeight: '600' as const, fontFamily },
-  small: { fontSize: 13, fontWeight: '400' as const, fontFamily },
-  overline: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1, fontFamily },
+  h1: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.5, fontFamily: 'Nunito-ExtraBold' },
+  h2: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3, fontFamily: 'Nunito-Bold' },
+  h3: { fontSize: 18, fontWeight: '700' as const, fontFamily: 'Nunito-Bold' },
+  body: { fontSize: 16, fontWeight: '400' as const, fontFamily: 'Nunito-Regular' },
+  bodyStrong: { fontSize: 16, fontWeight: '600' as const, fontFamily: 'Nunito-SemiBold' },
+  small: { fontSize: 13, fontWeight: '400' as const, fontFamily: 'Nunito-Regular' },
+  overline: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1, fontFamily: 'Nunito-Bold' },
 };
 
 export const elevation = (level: 1 | 2 | 3): ViewStyle =>

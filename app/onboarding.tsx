@@ -1,30 +1,35 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
+import { GoalsPicker } from '@/components/GoalsPicker';
 import { PathologyPicker } from '@/components/PathologyPicker';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { colors, typography } from '@/lib/theme';
+import { colors, radii, spacing, typography } from '@/lib/theme';
 
 export default function OnboardingScreen() {
   const { session, refreshProfile } = useAuth();
   const router = useRouter();
-  const [selected, setSelected] = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!session?.user?.id) return;
-    if (selected.length === 0) {
-      Alert.alert('Sélectionnez au moins une pathologie', 'Cela nous permet d\'adapter les recommandations.');
+    if (interests.length === 0) {
+      Alert.alert(
+        'Sélectionnez une pathologie',
+        'Cela nous permet d\'adapter les recommandations.',
+      );
       return;
     }
     setSaving(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ interests: selected })
+      .update({ interests, goals })
       .eq('id', session.user.id);
     setSaving(false);
 
@@ -38,20 +43,80 @@ export default function OnboardingScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Vos pathologies</Text>
-      <Text style={styles.subtitle}>
-        Sélectionnez une ou plusieurs pathologies qui vous concernent. Nous vous recommanderons des
-        exercices et programmes adaptés.
-      </Text>
+      {/* En-tête */}
+      <View style={styles.header}>
+        <Text style={styles.emoji}>🌿</Text>
+        <Text style={styles.title}>Bienvenue</Text>
+        <Text style={styles.subtitle}>
+          Quelques infos pour personnaliser votre espace. Vous pourrez les modifier à tout moment.
+        </Text>
+      </View>
 
-      <PathologyPicker selected={selected} onChange={setSelected} />
+      {/* Pathologies */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Ma pathologie</Text>
+          <Text style={styles.sectionHint}>Obligatoire</Text>
+        </View>
+        <Text style={styles.sectionDesc}>
+          Sélectionnez une ou plusieurs pathologies qui vous concernent.
+        </Text>
+        <PathologyPicker selected={interests} onChange={setInterests} />
+      </View>
 
-      <Button label="Continuer" onPress={save} loading={saving} />
+      {/* Objectifs */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Mes objectifs</Text>
+          <Text style={styles.sectionHintOptional}>Optionnel</Text>
+        </View>
+        <Text style={styles.sectionDesc}>
+          Qu'est-ce qui vous tient le plus à cœur ? Cela aide à orienter les exercices.
+        </Text>
+        <GoalsPicker selected={goals} onChange={setGoals} />
+      </View>
+
+      <Button label="Commencer" onPress={save} loading={saving} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.h1, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textMuted, marginBottom: 8 },
+  header: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  emoji: { fontSize: 52 },
+  title: { ...typography.h1, color: colors.text, textAlign: 'center' },
+  subtitle: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+
+  section: {
+    gap: spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: { ...typography.h3, color: colors.text },
+  sectionDesc: { ...typography.small, color: colors.textMuted },
+  sectionHint: {
+    ...typography.small,
+    color: colors.accent,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: `${colors.accent}18`,
+    borderRadius: 999,
+  },
+  sectionHintOptional: {
+    ...typography.small,
+    color: colors.textMuted,
+    fontWeight: '600',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 999,
+  },
 });

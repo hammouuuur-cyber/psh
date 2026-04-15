@@ -6,6 +6,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
+import { useFonts } from 'expo-font';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+} from '@expo-google-fonts/nunito';
 
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -131,6 +138,16 @@ function RootRouter() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'Nunito-Regular': Nunito_400Regular,
+    'Nunito-SemiBold': Nunito_600SemiBold,
+    'Nunito-Bold': Nunito_700Bold,
+    'Nunito-ExtraBold': Nunito_800ExtraBold,
+  });
+
+  // On laisse React Native afficher avec la police système pendant le
+  // chargement — pas de splash bloquant pour éviter un écran vide trop long.
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>

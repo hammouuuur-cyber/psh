@@ -9,6 +9,7 @@ export type Profile = {
   role: Role;
   display_name: string | null;
   interests: string[]; // codes pathologies
+  goals: string[];    // codes objectifs thérapeutiques
   created_at: string;
 };
 

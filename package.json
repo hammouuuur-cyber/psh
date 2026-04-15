@@ -25,6 +25,8 @@
     "expo-secure-store": "~13.0.2",
     "expo-status-bar": "~1.12.1",
     "expo-av": "~14.0.7",
+    "expo-font": "~12.0.10",
+    "@expo-google-fonts/nunito": "^0.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.53.0",
