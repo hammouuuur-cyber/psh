@@ -1,7 +1,7 @@
 // Palette et tokens UI — thème "Terre & Nature" (chaleureux, organique).
 // Deux modes : sombre (défaut) en gris chaud, clair coquille d'œuf.
 
-import { type ViewStyle } from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 
 // Mode sombre chaud (ne fatigue pas les yeux le soir).
 export const colors = {
